@@ -57,6 +57,8 @@ namespace VotesStat
             public double Weight { get; set; }
 
             public double[] Score = { 0.0, 0.0, 0.0, 0.0 };
+
+            public double ScoreTotal() { return Score[0] + Score[1] + Score[2] + Score[3]; }
         }
 
         private void buttonLoad_Click(object sender, EventArgs e)
@@ -118,8 +120,8 @@ namespace VotesStat
                 foreach ( Voted voted in voteds )
                 {
                     List<Vote> vm = new List<Vote>();
-                    double[] smin = { 10.0, 10.0, 10.0, 10.0 };               
-                    double[] smax = { 0.0, 0.0, 0.0, 0.0 };
+                    double score_min = 100.0;
+                    double score_max = 0.0;
 
                     int vj = 0;
                     foreach ( string voter in voters)
@@ -135,9 +137,9 @@ namespace VotesStat
                         }
                             
 
-                        var s = rows.Where(r => r.ElementAt(2).Value.ToString().Equals(voter) &&
-                            r.ElementAt(8)
-                            .Value.ToString().Equals(voted.Id))
+                        var s = rows
+                            .Where(r => r.ElementAt(2).Value.ToString().Equals(voter) &&
+                            r.ElementAt(8).Value.ToString().Equals(voted.Id))
                             .OrderBy(r => r.ElementAt(1).Value.ToString()); // 按时间排序
 
                         if (s.Count() > 0)
@@ -174,22 +176,17 @@ namespace VotesStat
                             // 最大最小值
                             if (v.Weight == 0.4)
                             {
-                                for (var i = 0; i < 4; i++)
-                                {
-                                    if (v.Score[i] < smin[i])
-                                        smin[i] = v.Score[i];
-                                    if (v.Score[i] > smax[i])
-                                        smax[i] = v.Score[i];
-                                }
+                                if (v.ScoreTotal() > score_max)
+                                    score_max = v.ScoreTotal();
+                                if (v.ScoreTotal() < score_min)
+                                    score_min = v.ScoreTotal();
                             }
 
                             vm.Add(v);
                         }
                         else
-                        {
-                            //voted.missVoter.Add(voter);
-
-                            miss_stat[vi, vj] = "未评"; // 未评
+                        { 
+                            miss_stat[vi, vj] = "未评";
                         }
 
                         voted.detail = vm;
@@ -203,29 +200,28 @@ namespace VotesStat
                     {
                         voted.flat_count = voted.flat - 2; // 去掉了最高值和最小值，所以值数目-2
 
-                        for (var i = 0; i < 4; i++)
+                        for (var j = 0; j < vm.Count(); j++)
                         {
-                            for (var j = 0; j < vm.Count(); j++)
+                            if (vm[j].Weight == 0.6) continue;
+                            if (vm[j].ScoreTotal() == score_min)
                             {
-                                if (vm[j].Weight == 0.6) continue;
-                                if (vm[j].Score[i] == smin[i])
-                                {
-                                        vm[j].Score[i] = 0.0;
-                                        break; // 只去掉一个
-                                }
-                            }
-
-                            for (var j = 0; j < vm.Count(); j++)
-                            {
-                                if (vm[j].Weight == 0.6) continue;
-                                if (vm[j].Score[i] == smax[i])
-                                {
-                                    vm[j].Score[i] = 0.0;
-                                    break; // 只去掉一个
-                                }
-
+                                for (var k = 0; k < 4; k++)
+                                    vm[j].Score[k] = 0.0;
+                                break; // 只去掉一个                            }
                             }
                         }
+
+                        for (var j = 0; j < vm.Count(); j++)
+                        {
+                            if (vm[j].Weight == 0.6) continue;
+                            if (vm[j].ScoreTotal() == score_max)
+                            {
+                                for (var k = 0; k < 4; k++)
+                                    vm[j].Score[k] = 0.0;
+                                break; // 只去掉一个
+                            }
+                        }
+
                     }
 
                     // 开始计算
