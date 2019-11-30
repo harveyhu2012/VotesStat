@@ -26,19 +26,16 @@ namespace VotesStat
             public string Id { get; set; }
             public string Job { get; set; }
             public string JobType { get; set; }
+            public string Rank { get; set; }
 
             public double[] Score = { 0.0, 0.0, 0.0, 0.0 };
 
-            // 上级人数
-            public int upper { get; set; }
+            //// 上级人数
+            //public int upper { get; set; }
 
-            // 平级人数
-            public int flat { get; set; }
-            public int flat_count { get; set; } //去掉最高分和最低分之后的平级人数
-
-
-            // 没评价此人的人员列表
-            //public List<string> missVoter = new List<string> { };
+            //// 同级人数
+            //public int flat { get; set; }
+            //public int flat_count { get; set; } //去掉最高分和最低分之后的同级人数
 
             // 评价明细
             public List<Vote> detail = new List<Vote> { };
@@ -47,18 +44,89 @@ namespace VotesStat
             {
                 return Name;
             }
+            
+            // 上级人数
+            public int uppercount()
+            {
+                return detail.Count(m => m.Level.Equals("上级") && m.isValid);
+            }
+
+            // 同级人数
+            public int flatcount()
+            {
+                return detail.Count(m => m.Level.Equals("同级") && m.isValid);
+            }
+
+            public int flatcount_nominmax()
+            {
+                return detail.Count(m => m.Level.Equals("同级") && m.isValid && m.isMinOrMax == false);
+            }
+
+            // 下级人数
+            public int lowercount()
+            {
+                return detail.Count(m => m.Level.Equals("下级") && m.isValid);
+            }
+
+            public int lowercount_nominmax()
+            {
+                return detail.Count(m => m.Level.Equals("下级") && m.isValid && m.isMinOrMax == false);
+            }
+
+            // 总投票人数
+            public int totalcount()
+            {
+                return detail.Count(m => m.isValid);
+            }
         }
 
         public class Vote
         {
-            public string Voter { get; set; }
+            public string Voter { get; set; } // 含科室
+            public string VoteTime { get; set; }
             public string VotedId { get; set; }
             public string VotedName { get; set; }
-            public double Weight { get; set; }
+            public string Level { get; set; }
+            //public double Weight { get; set; }
+            public bool isValid { get; set; } = true; // 是否有效
+            public bool isMinOrMax { get; set; } = false; // 是否是最大值或最小值
 
             public double[] Score = { 0.0, 0.0, 0.0, 0.0 };
 
+
+            // 总分
             public double ScoreTotal() { return Score[0] + Score[1] + Score[2] + Score[3]; }
+
+            public double getWeight(string rank)
+            {
+                switch (rank)
+                {
+                    case "院级领导":
+                        switch (Level)
+                        {
+                            case "同级":
+                                return 0.6;
+                            default:
+                                return 0.4;
+                        }
+                    case "部门领导":
+                        switch (Level)
+                        {
+                            case "上级":
+                                return 0.4;
+                            default:
+                                return 0.3;
+                        }
+                    default:
+                        switch (Level)
+                        {
+                            case "上级":
+                                return 0.6;
+                            default:
+                                return 0.4;
+                        }
+                }
+            }
         }
 
         private void buttonLoad_Click(object sender, EventArgs e)
@@ -149,18 +217,19 @@ namespace VotesStat
                             v.Voter = voter;
                             v.VotedId = voted.Id;
                             v.VotedName = voted.Name;
+                            v.Level = s.First().ElementAt(14).Value.ToString();
 
-                            switch (s.First().ElementAt(14).Value.ToString())
-                            {
-                                case "上级":
-                                    v.Weight = 0.6;
-                                    voted.upper = voted.upper + 1;
-                                    break;
-                                default:
-                                    v.Weight = 0.4;
-                                    voted.flat = voted.flat + 1;
-                                    break;
-                            }
+                            //switch (s.First().ElementAt(14).Value.ToString())
+                            //{
+                            //    case "上级":
+                            //        v.Weight = 0.6;
+                            //        voted.upper = voted.upper + 1;
+                            //        break;
+                            //    default:
+                            //        v.Weight = 0.4;
+                            //        voted.flat = voted.flat + 1;
+                            //        break;
+                            //}
 
                             v.Score[0] = double.Parse(s.First().ElementAt(15).Value.ToString())
                                 + double.Parse(s.First().ElementAt(17).Value.ToString());
@@ -174,7 +243,7 @@ namespace VotesStat
                                 + double.Parse(s.First().ElementAt(33).Value.ToString());
 
                             // 最大最小值
-                            if (v.Weight == 0.4)
+                            if (v.Level.Equals("同级"))
                             {
                                 if (v.ScoreTotal() > score_max)
                                     score_max = v.ScoreTotal();
@@ -195,29 +264,32 @@ namespace VotesStat
                     }
 
                     // 去掉一个最高值和最低值(置为0.0)
-                    voted.flat_count = voted.flat; 
-                    if (voted.upper + voted.flat >= 10 && voted.flat > 3)
+                    //voted.flat_count = voted.flat; 
+                    if (voted.uppercount() + voted.flatcount() >= 10 && voted.flatcount() > 3)
                     {
-                        voted.flat_count = voted.flat - 2; // 去掉了最高值和最小值，所以值数目-2
+                        //voted.flat_count = voted.flat - 2; // 去掉了最高值和最小值，所以值数目-2
 
                         for (var j = 0; j < vm.Count(); j++)
                         {
-                            if (vm[j].Weight == 0.6) continue;
+                            if (vm[j].Level.Equals("上级")) continue;
                             if (vm[j].ScoreTotal() == score_min)
                             {
-                                for (var k = 0; k < 4; k++)
-                                    vm[j].Score[k] = 0.0;
+                                vm[j].isMinOrMax = true;
+                                //for (var k = 0; k < 4; k++)
+                                //    vm[j].Score[k] = 0.0;
                                 break; // 只去掉一个                            }
                             }
                         }
 
                         for (var j = 0; j < vm.Count(); j++)
                         {
-                            if (vm[j].Weight == 0.6) continue;
+                            if (vm[j].Level.Equals("上级")) continue;
+                            if (vm[j].isMinOrMax) continue;
                             if (vm[j].ScoreTotal() == score_max)
                             {
-                                for (var k = 0; k < 4; k++)
-                                    vm[j].Score[k] = 0.0;
+                                vm[j].isMinOrMax = true;
+                                //for (var k = 0; k < 4; k++)
+                                //    vm[j].Score[k] = 0.0;
                                 break; // 只去掉一个
                             }
                         }
@@ -225,22 +297,25 @@ namespace VotesStat
                     }
 
                     // 开始计算
+                    var uppercount = voted.uppercount();
+                    var flatcount = voted.flatcount_nominmax();
                     foreach (var v in vm)
                     {
-                        if (voted.upper > 0 && voted.flat_count > 0)
+                        if (v.isMinOrMax) continue;
+                        if (voted.uppercount() > 0 && voted.flatcount() > 0)
                         {
                             for (var i = 0; i < 4; i++)
                             {
-                                if (v.Weight == 0.6)
-                                    voted.Score[i] += v.Score[i] * v.Weight / voted.upper;
+                                if (v.Level.Equals("上级"))
+                                    voted.Score[i] += v.Score[i] * v.getWeight("普通员工") / uppercount;
                                 else
-                                    voted.Score[i] += v.Score[i] * v.Weight / voted.flat_count;
+                                    voted.Score[i] += v.Score[i] * v.getWeight("普通员工") / flatcount;
                             }
                         }
                         else
                         {
                             for (var i = 0; i < 4; i++)
-                                voted.Score[i] += v.Score[i] / voted.flat_count;
+                                voted.Score[i] += v.Score[i] / flatcount;
                         }
                     }
 
@@ -283,7 +358,7 @@ namespace VotesStat
                             sheet.Cells[row, 5].Value = voted.Job;
                             sheet.Cells[row, 6].Value = voted.JobType;
                             sheet.Cells[row, 7].Value = voters.Count();
-                            sheet.Cells[row, 8].Value = voted.upper + voted.flat;
+                            sheet.Cells[row, 8].Value = voted.totalcount();
                             sheet.Cells[row, 9].Value = voted.Score[0];
                             sheet.Cells[row, 10].Value = voted.Score[1];
                             sheet.Cells[row, 11].Value = voted.Score[2];
