@@ -50,6 +50,7 @@
             this.buttonCal.TabIndex = 1;
             this.buttonCal.Text = "计算评分";
             this.buttonCal.UseVisualStyleBackColor = true;
+            this.buttonCal.Click += new System.EventHandler(this.buttonCal_Click);
             // 
             // FormMain
             // 
