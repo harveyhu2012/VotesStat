@@ -30,11 +30,13 @@
         {
             this.buttonLoad = new System.Windows.Forms.Button();
             this.buttonCal = new System.Windows.Forms.Button();
+            this.checkedListBoxDept = new System.Windows.Forms.CheckedListBox();
+            this.checkedListBoxVoteds = new System.Windows.Forms.CheckedListBox();
             this.SuspendLayout();
             // 
             // buttonLoad
             // 
-            this.buttonLoad.Location = new System.Drawing.Point(66, 34);
+            this.buttonLoad.Location = new System.Drawing.Point(31, 32);
             this.buttonLoad.Name = "buttonLoad";
             this.buttonLoad.Size = new System.Drawing.Size(91, 30);
             this.buttonLoad.TabIndex = 0;
@@ -44,19 +46,40 @@
             // 
             // buttonCal
             // 
-            this.buttonCal.Location = new System.Drawing.Point(66, 71);
+            this.buttonCal.Location = new System.Drawing.Point(138, 33);
             this.buttonCal.Name = "buttonCal";
-            this.buttonCal.Size = new System.Drawing.Size(91, 28);
+            this.buttonCal.Size = new System.Drawing.Size(91, 30);
             this.buttonCal.TabIndex = 1;
             this.buttonCal.Text = "计算评分";
             this.buttonCal.UseVisualStyleBackColor = true;
             this.buttonCal.Click += new System.EventHandler(this.buttonCal_Click);
             // 
+            // checkedListBoxDept
+            // 
+            this.checkedListBoxDept.CheckOnClick = true;
+            this.checkedListBoxDept.FormattingEnabled = true;
+            this.checkedListBoxDept.Location = new System.Drawing.Point(31, 101);
+            this.checkedListBoxDept.Name = "checkedListBoxDept";
+            this.checkedListBoxDept.Size = new System.Drawing.Size(268, 388);
+            this.checkedListBoxDept.TabIndex = 2;
+            this.checkedListBoxDept.ItemCheck += new System.Windows.Forms.ItemCheckEventHandler(this.checkedListBoxDept_ItemCheck);
+            // 
+            // checkedListBoxVoteds
+            // 
+            this.checkedListBoxVoteds.CheckOnClick = true;
+            this.checkedListBoxVoteds.FormattingEnabled = true;
+            this.checkedListBoxVoteds.Location = new System.Drawing.Point(324, 101);
+            this.checkedListBoxVoteds.Name = "checkedListBoxVoteds";
+            this.checkedListBoxVoteds.Size = new System.Drawing.Size(268, 388);
+            this.checkedListBoxVoteds.TabIndex = 3;
+            // 
             // FormMain
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(231, 153);
+            this.ClientSize = new System.Drawing.Size(627, 523);
+            this.Controls.Add(this.checkedListBoxVoteds);
+            this.Controls.Add(this.checkedListBoxDept);
             this.Controls.Add(this.buttonCal);
             this.Controls.Add(this.buttonLoad);
             this.Name = "FormMain";
@@ -69,6 +92,8 @@
 
         private System.Windows.Forms.Button buttonLoad;
         private System.Windows.Forms.Button buttonCal;
+        private System.Windows.Forms.CheckedListBox checkedListBoxDept;
+        private System.Windows.Forms.CheckedListBox checkedListBoxVoteds;
     }
 }
 

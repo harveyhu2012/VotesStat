@@ -29,7 +29,7 @@ namespace VotesStat
             public string JobType { get; set; }
             public string Rank { get; set; }
 
-            public double[] Score = { 0.0, 0.0, 0.0, 0.0 };
+            public double[] Score = { 0.0,0.0,0.0,0.0};
 
             // 评价明细
             public List<Vote> detail = new List<Vote> { };
@@ -71,6 +71,86 @@ namespace VotesStat
             public int Totalcount()
             {
                 return detail.Count(m => m.IsValid);
+            }
+
+            // 计算分值
+            public void CalculateScore(List<Vote> votes)
+            {
+                // 投票人
+                var voters = votes
+                    .GroupBy(r => new { r.VoterName, r.VoterDepartment })
+                    .Select(r => new { VoterName = r.Key.VoterName, r.Key.VoterDepartment })
+                    .ToList();
+
+                List<Vote> vm = new List<Vote>();
+
+                foreach (var voter in voters)
+                {
+                    var s = votes
+                        .Where(r => r.VoterName.Equals(voter.VoterName) && r.VoterDepartment.Equals(voter.VoterDepartment) &&
+                        r.VotedId.Equals(Id))
+                        .OrderBy(r => r.VoteTime); // 按时间排序
+
+                    if (s.Count() > 0)
+                    {
+                        // 先全部置为无效
+                        foreach (var x in s)
+                        {
+                            x.IsValid = false;
+                            x.IsMinOrMax = false;
+                        }
+
+                        if (voter.VoterName.Equals(Name) && voter.VoterDepartment.Equals(Department))
+                        {
+                            // 自评无效
+                        }
+                        else
+                        {
+                            // 最早的评价有效
+                            s.First().IsValid = true;
+                        }
+
+                        vm = vm.Concat(s).ToList();
+
+                    }
+
+                }
+
+                // 最高值和最低值标志
+                if (Uppercount() + Flatcount() >= 10 && Flatcount() > 3)
+                {
+                    vm.Where(x => x.Level.Equals("同级")).OrderBy(y => y.ScoreTotal()).First().IsMinOrMax = true;
+                    vm.Where(x => x.Level.Equals("同级")).OrderByDescending(y => y.ScoreTotal()).First().IsMinOrMax = true;
+                }
+                // 数据准备完成
+                detail = vm;
+
+
+                // 开始计算
+                var uppercount = Uppercount();
+                var flatcount = Flatcount_nominmax();
+                foreach (var v in vm)
+                {
+                    if (v.IsMinOrMax) continue;
+                    if (v.IsValid == false) continue;
+
+                    if (Uppercount() > 0 && Flatcount() > 0)
+                    {
+                        for (var i = 0; i < 4; i++)
+                        {
+                            if (v.Level.Equals("上级"))
+                                Score[i] += v.Score[i] * v.GetWeight("普通员工") / uppercount;
+                            else
+                                Score[i] += v.Score[i] * v.GetWeight("普通员工") / flatcount;
+                        }
+                    }
+                    else
+                    {
+                        for (var i = 0; i < 4; i++)
+                            Score[i] += v.Score[i] / flatcount;
+                    }
+                }
+
             }
         }
 
@@ -141,6 +221,34 @@ namespace VotesStat
             return true;
         }
 
+        // 已发出评价但未被评价的人，补充进科室人员名单
+        private List<Voted> GetFullVoteds(List<string> depts)
+        {
+            var not_voteds = votes
+                    .Where(r => depts.Contains(r.VoterDepartment) && r.Level.Equals("同级"))
+                    .GroupBy(r => new { r.VoterName, r.VoterDepartment })
+                    .Select(r => new Voted
+                    {
+                        Name = r.Key.VoterName,
+                        Department = r.Key.VoterDepartment,
+                        Order = 999,
+                        Id = r.Key.VoterName,
+                        Job = "",
+                        JobType = ""
+                    })
+                    .ToList();
+
+            not_voteds = not_voteds
+                .Where(r => !voteds.Select(v => new { v.Name, v.Department }).Contains(new { Name = r.Name, Department = r.Department }))
+                .ToList();
+
+            var have_voted = voteds.Where(x => depts.Contains(x.Department)).ToList();
+
+            var full_voteds = have_voted.Concat(not_voteds).ToList();
+
+            return full_voteds;
+        }
+
         private void buttonLoad_Click(object sender, EventArgs e)
         {
             // 选择文件
@@ -200,27 +308,6 @@ namespace VotesStat
                     }
                     ).ToList<Voted>();
 
-                //voteds = (from row in rows
-                //          group rows by new
-                //          {
-                //              Order = int.Parse(row.ElementAt(6).Value.ToString()),
-                //              Name = row.ElementAt(7).Value.ToString(),
-                //              Id = row.ElementAt(8).Value.ToString(),
-                //              Department = row.ElementAt(9).Value.ToString(),
-                //              Job = row.ElementAt(10).Value.ToString(),
-                //              JobType = row.ElementAt(11).Value.ToString()
-                //          }
-                //                      into v
-                //          orderby v.Key.Order
-                //          select new Voted
-                //          {
-                //              Name = v.Key.Name,
-                //              Id = v.Key.Id,
-                //              Order = v.Key.Order,
-                //              Job = v.Key.Job,
-                //              JobType = v.Key.JobType
-                //          }).ToList<Voted>();
-
                 // 投票信息
                 List<Vote> this_votes = rows.
                     Select(row => new Vote
@@ -248,8 +335,48 @@ namespace VotesStat
 
                 votes = votes.Concat(this_votes).ToList<Vote>();
 
+                // 科室选项
+                checkedListBoxDept.Items.Clear();
+                List<string> depts = voteds.GroupBy(x => x.Department).Select(y => y.Key).ToList();
+                foreach (var d in depts)
+                {
+                    checkedListBoxDept.Items.Add(d, true);
+                }
 
-                
+                // 已发出评价但未被评价的人，补充进科室人员名单
+                //var not_voteds = votes
+                //.Where( r=> depts.Contains(r.VoterDepartment) 
+                //&& !voteds.Select(v=>new { v.Name, v.Department }).Contains(new { Name = r.VotedName, Department = r.VoterDepartment }))
+                //.GroupBy(r => new { r.VoterName, r.VoterDepartment })
+                //.Select(r => new Voted{ Name = r.Key.VoterName, Department = r.Key.VoterDepartment })
+                //.ToList();
+
+                //var not_voteds = votes
+                //.Where(r => depts.Contains(r.VoterDepartment))
+                //.GroupBy(r => new { r.VoterName, r.VoterDepartment })
+                //.Select(r => new Voted { Name = r.Key.VoterName, Department = r.Key.VoterDepartment })
+                //.ToList();
+
+                //not_voteds = not_voteds
+                //    .Where(r => !voteds.Select(v => new { v.Name, v.Department }).Contains(new { Name = r.Name, Department = r.Department }))
+                //    .ToList();
+
+                var full_voteds = GetFullVoteds(depts);
+
+                checkedListBoxVoteds.Items.Clear();
+                foreach (var v in full_voteds)
+                {
+                    if (checkedListBoxVoteds.Items.Contains(v))
+                    {
+
+                    }
+                    else
+                    {
+                        checkedListBoxVoteds.Items.Add(v, true);
+                    }
+                }
+
+
             }
         }
 
@@ -262,132 +389,19 @@ namespace VotesStat
                 .ToList();
 
             // 投票计算
-            string[,] miss_stat = new string[voteds.Count(), voters.Count()];
-            int vi = 0;
-            foreach (Voted voted in voteds)
+            List<Voted> selected = new List<Voted>();
+            for (var i=0;i< checkedListBoxVoteds.Items.Count;i++)
             {
-                List<Vote> vm = new List<Vote>();
-                double score_min = 100.0;
-                double score_max = 0.0;
-
-                int vj = 0;
-                foreach (var voter in voters)
+                if (checkedListBoxVoteds.GetItemChecked(i))
                 {
-                    //var v = new Vote();
-                    //List<string> mv = new List<string>();
-                    //mv.Add(voter);
-                    if (voter.VoterName.Equals(voted.Name) && voter.VoterDepartment.Equals(voted.Department))
-                    {
-                        miss_stat[vi, vj] = " ";
-                        vj = vj + 1;
-                        continue; // 自己不能投给自己
-                    }
-
-
-                    //var s = rows
-                    //    .Where(r => r.ElementAt(2).Value.ToString().Equals(voter) &&
-                    //    r.ElementAt(8).Value.ToString().Equals(voted.Id))
-                    //    .OrderBy(r => r.ElementAt(1).Value.ToString()); // 按时间排序
-
-                    var s = votes
-                        .Where(r => r.VoterName.Equals(voter.VoterName) && r.VoterDepartment.Equals(voter.VoterDepartment) &&
-                        r.VotedId.Equals(voted.Id))
-                        .OrderBy(r => r.VoteTime); // 按时间排序
-
-                    if (s.Count() > 0)
-                    {
-                        miss_stat[vi, vj] = " "; // 已评
-
-                        var v = s.First();
-
-                        //v.Voter = voter;
-                        //v.VotedId = voted.Id;
-                        //v.VotedName = voted.Name;
-                        //v.Level = s.First().ElementAt(14).Value.ToString();
-
-                        //v.Score[0] = double.Parse(s.First().ElementAt(15).Value.ToString())
-                        //    + double.Parse(s.First().ElementAt(17).Value.ToString());
-                        //v.Score[1] = double.Parse(s.First().ElementAt(19).Value.ToString())
-                        //    + double.Parse(s.First().ElementAt(21).Value.ToString())
-                        //    + double.Parse(s.First().ElementAt(23).Value.ToString());
-                        //v.Score[2] = double.Parse(s.First().ElementAt(25).Value.ToString());
-                        //v.Score[3] = double.Parse(s.First().ElementAt(27).Value.ToString())
-                        //    + double.Parse(s.First().ElementAt(29).Value.ToString())
-                        //    + double.Parse(s.First().ElementAt(31).Value.ToString())
-                        //    + double.Parse(s.First().ElementAt(33).Value.ToString());
-
-                        // 最大最小值
-                        if (v.Level.Equals("同级"))
-                        {
-                            if (v.ScoreTotal() > score_max)
-                                score_max = v.ScoreTotal();
-                            if (v.ScoreTotal() < score_min)
-                                score_min = v.ScoreTotal();
-                        }
-
-                        vm.Add(v);
-                    }
-                    else
-                    {
-                        miss_stat[vi, vj] = "未评";
-                    }
-
-                    voted.detail = vm;
-
-                    vj = vj + 1;
+                    var v = (Voted)checkedListBoxVoteds.Items[i];
+                    selected.Add(v);
                 }
+            }
 
-                // 去掉一个最高值和最低值(置为0.0)
-                if (voted.Uppercount() + voted.Flatcount() >= 10 && voted.Flatcount() > 3)
-                {
-                    for (var j = 0; j < vm.Count(); j++)
-                    {
-                        if (vm[j].Level.Equals("上级")) continue;
-                        if (vm[j].ScoreTotal() == score_min)
-                        {
-                            vm[j].IsMinOrMax = true;
-                            break; // 只去掉一个                            }
-                        }
-                    }
-
-                    for (var j = 0; j < vm.Count(); j++)
-                    {
-                        if (vm[j].Level.Equals("上级")) continue;
-                        if (vm[j].IsMinOrMax) continue;
-                        if (vm[j].ScoreTotal() == score_max)
-                        {
-                            vm[j].IsMinOrMax = true;
-                            break; // 只去掉一个
-                        }
-                    }
-
-                }
-
-                // 开始计算
-                var uppercount = voted.Uppercount();
-                var flatcount = voted.Flatcount_nominmax();
-                foreach (var v in vm)
-                {
-                    if (v.IsMinOrMax) continue;
-                    if (voted.Uppercount() > 0 && voted.Flatcount() > 0)
-                    {
-                        for (var i = 0; i < 4; i++)
-                        {
-                            if (v.Level.Equals("上级"))
-                                voted.Score[i] += v.Score[i] * v.GetWeight("普通员工") / uppercount;
-                            else
-                                voted.Score[i] += v.Score[i] * v.GetWeight("普通员工") / flatcount;
-                        }
-                    }
-                    else
-                    {
-                        for (var i = 0; i < 4; i++)
-                            voted.Score[i] += v.Score[i] / flatcount;
-                    }
-                }
-
-                vi = vi + 1;
-
+            foreach (Voted voted in selected)
+            {
+                voted.CalculateScore(votes);
             }
 
 
@@ -397,25 +411,25 @@ namespace VotesStat
                 //載入Excel檔案
                 using (ExcelPackage ep = new ExcelPackage(fs))
                 {
-                    ExcelWorksheet sheet2 = ep.Workbook.Worksheets[2];//取得Sheet2
-                    sheet2.Name = voteds.First().Department + "漏评统计";
-                    for (var i = 0; i < voteds.Count(); i++)
-                    {
-                        sheet2.Cells[1, i + 2].Value = voteds[i].Name;
-                        for (var j = 0; j < voters.Count(); j++)
-                        {
-                            sheet2.Cells[j + 2, 1].Value = voters[j];
-                            sheet2.Cells[j + 2, i + 2].Value = miss_stat[i, j];
-                        }
-                    }
+                    //ExcelWorksheet sheet2 = ep.Workbook.Worksheets[2];//取得Sheet2
+                    //sheet2.Name = voteds.First().Department + "漏评统计";
+                    //for (var i = 0; i < voteds.Count(); i++)
+                    //{
+                    //    sheet2.Cells[1, i + 2].Value = voteds[i].Name;
+                    //    for (var j = 0; j < voters.Count(); j++)
+                    //    {
+                    //        sheet2.Cells[j + 2, 1].Value = voters[j];
+                    //        sheet2.Cells[j + 2, i + 2].Value = miss_stat[i, j];
+                    //    }
+                    //}
 
                     // 按人员分类排序
-                    voteds = voteds.OrderBy(o => o.JobType).ThenByDescending(o => o.Score[0] + o.Score[1] + o.Score[2] + o.Score[3]).ToList();
+                    selected = selected.OrderByDescending(o => o.JobType).ThenByDescending(o => o.Score[0] + o.Score[1] + o.Score[2] + o.Score[3]).ToList();
                     ExcelWorksheet sheet = ep.Workbook.Worksheets[1];//取得Sheet1
-                    sheet.Name = voteds.First().Department + "评测结果";
-                    sheet.InsertRow(4, voteds.Count(), 3);
+                    sheet.Name = selected.First().Department + "评测结果";
+                    sheet.InsertRow(4, selected.Count(), 3);
                     int row = 3;
-                    foreach (var voted in voteds)
+                    foreach (var voted in selected)
                     {
                         row++;
                         sheet.Cells[row, 1].Formula = "=ROW()-2";
@@ -441,7 +455,7 @@ namespace VotesStat
                     sheet.DeleteRow(3);//删掉示例行
 
                     //建立檔案
-                    using (FileStream createStream = new FileStream(voteds.First().Department + "评测结果.xlsx", FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
+                    using (FileStream createStream = new FileStream(selected.First().Department + "评测结果.xlsx", FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
                     {
                         ep.SaveAs(createStream);//存檔
                     }//end using 
@@ -451,8 +465,37 @@ namespace VotesStat
 
             Process m_Process = null;
             m_Process = new Process();
-            m_Process.StartInfo.FileName = voteds.First().Department + "评测结果.xlsx";
+            m_Process.StartInfo.FileName = selected.First().Department + "评测结果.xlsx";
             m_Process.Start();
+        }
+
+        private void checkedListBoxDept_ItemCheck(object sender, ItemCheckEventArgs e)
+        {
+            string dept = checkedListBoxDept.Items[e.Index].ToString();
+            List<string> depts = new List<string>() { dept };
+            var fullvoteds = GetFullVoteds(depts);
+            if (e.NewValue == CheckState.Checked)
+            {
+                foreach (var v in fullvoteds.Where(x=>x.Department.Equals(dept)))
+                {
+                    if (checkedListBoxVoteds.Items.Contains(v))
+                    { }
+                    else
+                    {
+                        checkedListBoxVoteds.Items.Add(v, true);
+                    }   
+                }
+            }
+            else
+            {
+                for (var i = checkedListBoxVoteds.Items.Count; i>0;i--)
+                {
+                    Voted v = (Voted)checkedListBoxVoteds.Items[i-1];
+                    if (v.Department.Equals(dept))
+                        checkedListBoxVoteds.Items.RemoveAt(i - 1);
+                }
+            }
+
         }
     }
 }
