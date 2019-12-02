@@ -32,6 +32,7 @@
             this.buttonCal = new System.Windows.Forms.Button();
             this.checkedListBoxDept = new System.Windows.Forms.CheckedListBox();
             this.checkedListBoxVoteds = new System.Windows.Forms.CheckedListBox();
+            this.labelMode = new System.Windows.Forms.Label();
             this.SuspendLayout();
             // 
             // buttonLoad
@@ -73,18 +74,29 @@
             this.checkedListBoxVoteds.Size = new System.Drawing.Size(268, 388);
             this.checkedListBoxVoteds.TabIndex = 3;
             // 
+            // labelMode
+            // 
+            this.labelMode.AutoSize = true;
+            this.labelMode.Location = new System.Drawing.Point(465, 42);
+            this.labelMode.Name = "labelMode";
+            this.labelMode.Size = new System.Drawing.Size(41, 12);
+            this.labelMode.TabIndex = 4;
+            this.labelMode.Text = "模式：";
+            // 
             // FormMain
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(627, 523);
+            this.Controls.Add(this.labelMode);
             this.Controls.Add(this.checkedListBoxVoteds);
             this.Controls.Add(this.checkedListBoxDept);
             this.Controls.Add(this.buttonCal);
             this.Controls.Add(this.buttonLoad);
             this.Name = "FormMain";
-            this.Text = "普通员工 考评统计";
+            this.Text = "员工考评数据统计";
             this.ResumeLayout(false);
+            this.PerformLayout();
 
         }
 
@@ -94,6 +106,7 @@
         private System.Windows.Forms.Button buttonCal;
         private System.Windows.Forms.CheckedListBox checkedListBoxDept;
         private System.Windows.Forms.CheckedListBox checkedListBoxVoteds;
+        private System.Windows.Forms.Label labelMode;
     }
 }
 
