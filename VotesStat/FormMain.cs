@@ -33,6 +33,12 @@ namespace VotesStat
 
             public double[] Score = { 0.0,0.0,0.0,0.0};
 
+            // 总分
+            public double TotalScore()
+            {
+                return Score[0] + Score[1] + Score[2] + Score[3];
+            }
+
             // 评价明细
             public List<Vote> detail = new List<Vote> { };
 
@@ -156,14 +162,19 @@ namespace VotesStat
                     // 评分要全
                     if (uppercount <= 0 || flatcount <= 0 || lowercount <= 0)
                     {
-                        var err = "";
-                        if (uppercount <= 0) err = "上级";
-                        if (flatcount <= 0) err = "同级";
-                        if (lowercount <= 0) err = "下级";
-                        MessageBox.Show(Name + "没有" + err + "评分，无法计算测评结果！", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        return false;
+                        //var err = "";
+                        //if (uppercount <= 0) err = "上级";
+                        //if (flatcount <= 0) //err = "同级";
+                        //if (lowercount <= 0) err = "下级";
+                        //MessageBox.Show(Name + "没有" + err + "评分，无法计算测评结果！", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        // return false;
+
+                        // 算出来的结果全都是ERR
+                        uppercount = 0;
+                        flatcount = 0;
+                        lowercount = 0;
                     }
-                        
+                         
                     foreach (var v in vm)
                     {
                         if (v.IsMinOrMax) continue;
@@ -584,6 +595,169 @@ namespace VotesStat
                 }
             }
 
+        }
+
+        private void checkedListBoxVoteds_DoubleClick(object sender, EventArgs e)
+        {
+            Voted selected = (Voted)checkedListBoxVoteds.SelectedItem;
+
+            // 投票人
+            var voters = votes
+                .GroupBy(r => new { r.VoterName, r.VoterDepartment })
+                .Select(r => new { VoterName = r.Key.VoterName, r.Key.VoterDepartment })
+                .ToList();
+
+            // 写报告文件
+            using (FileStream fs = new FileStream(@"single_template.xlsx", FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                //載入Excel檔案
+                using (ExcelPackage ep = new ExcelPackage(fs))
+                {
+                    ExcelWorksheet sheet = ep.Workbook.Worksheets[1];//取得Sheet1
+                    sheet.Name = selected.Name + "评测明细";
+
+                    if (selected.CalculateScore(votes, Rank) == false)
+                        return;
+
+                    // 基本信息
+                    sheet.Cells[3, 1].Value = selected.Order;
+                    sheet.Cells[3, 2].Value = selected.Department;
+                    sheet.Cells[3, 3].Value = selected.Id;
+                    sheet.Cells[3, 4].Value = selected.Name;
+                    sheet.Cells[3, 5].Value = selected.Job;
+                    sheet.Cells[3, 6].Value = selected.JobType;
+                    if (Rank == "普通员工")
+                        sheet.Cells[3, 7].Value = voters.Count();
+                    sheet.Cells[3, 8].Value = selected.Totalcount();
+                    sheet.Cells[3, 9].Value = selected.TotalScore();
+
+                    // 总计
+                    if (Rank.Equals("普通员工"))
+                    {
+                        if (selected.Uppercount() > 0 && selected.Flatcount() > 0 )
+                        {
+                            sheet.Cells[9, 6].Formula = "=F6*0.6+F7*0.4";
+                            sheet.Cells[9, 7].Formula = "=G6*0.6+G7*0.4";
+                            sheet.Cells[9, 8].Formula = "=H6*0.6+H7*0.4";
+                            sheet.Cells[9, 9].Formula = "=I6*0.6+I7*0.4";
+                            sheet.Cells[9, 10].Formula = "=J6*0.6+J7*0.4";
+                        }
+                        else
+                        {
+                            if (selected.Uppercount() > 0)
+                            {
+                                sheet.Cells[9, 6].Formula = "=F6";
+                                sheet.Cells[9, 7].Formula = "=G6";
+                                sheet.Cells[9, 8].Formula = "=H6";
+                                sheet.Cells[9, 9].Formula = "=I6";
+                                sheet.Cells[9, 10].Formula = "=J6";
+                            }
+                            else
+                            {
+                                sheet.Cells[9, 6].Formula = "=F7";
+                                sheet.Cells[9, 7].Formula = "=G7";
+                                sheet.Cells[9, 8].Formula = "=H7";
+                                sheet.Cells[9, 9].Formula = "=I7";
+                                sheet.Cells[9, 10].Formula = "=J7";
+                            }
+                        }  
+                    }
+
+                    foreach (var rank in new List<string>() { "下级", "同级", "上级" })
+                    {
+                        var vm = selected.detail.Where(x => x.Level.Equals(rank)).OrderBy(y => y.VoterDepartment).ToList();
+
+                        int row = 0;
+                        switch(rank)
+                        {
+                            case "下级":
+                                {
+                                    row = 8;
+                                    break;
+                                }
+                            case "同级":
+                                {
+                                    row = 7;
+                                    break;
+                                }
+                            default:
+                                {
+                                    row = 6;
+                                    break;
+                                }       
+                        }
+                        int rowstart = row;
+                        int rowend = row + vm.Count() - 1;
+                        string rowstarts = rowstart.ToString();
+                        string rowends = rowend.ToString();
+                        
+                        sheet.InsertRow(row, vm.Count(), 5);
+                        var first = true;
+
+                        for (var v = 0; v < vm.Count(); v++)
+                        {
+                            if (first)
+                            {
+                                sheet.Cells[v + row, 1].Value = rank;
+                                first = false;
+                            }
+
+                            sheet.Cells[v + row, 2].Value = vm[v].VoterName;
+                            sheet.Cells[v + row, 3].Value = vm[v].VoterDepartment;
+                            sheet.Cells[v + row, 4].Value = vm[v].IsValid;
+                            sheet.Cells[v + row, 5].Value = vm[v].IsMinOrMax;
+                            sheet.Cells[v + row, 6].Value = vm[v].Score[0];
+                            sheet.Cells[v + row, 7].Value = vm[v].Score[1];
+                            sheet.Cells[v + row, 8].Value = vm[v].Score[2];
+                            sheet.Cells[v + row, 9].Value = vm[v].Score[3];
+                            sheet.Cells[v + row, 10].Value = vm[v].ScoreTotal();
+                        }
+
+                        // 平均分
+                        if (vm.Count() > 0)
+                        {
+                            sheet.Cells[rowend + 1, 6].Formula = "=SUMIFS(F" + rowstarts + ":F" + rowends + ",D" + rowstarts + ":D" + rowends + ",TRUE,E" + rowstarts + ":E" + rowends + ",FALSE)/COUNTIFS(D" + rowstarts + ":D" + rowends + ",TRUE,E" + rowstarts + ":E" + rowends + ",FALSE)";
+                            sheet.Cells[rowend + 1, 7].Formula = "=SUMIFS(G" + rowstarts + ":G" + rowends + ",D" + rowstarts + ":D" + rowends + ",TRUE,E" + rowstarts + ":E" + rowends + ",FALSE)/COUNTIFS(D" + rowstarts + ":D" + rowends + ",TRUE,E" + rowstarts + ":E" + rowends + ",FALSE)";
+                            sheet.Cells[rowend + 1, 8].Formula = "=SUMIFS(H" + rowstarts + ":H" + rowends + ",D" + rowstarts + ":D" + rowends + ",TRUE,E" + rowstarts + ":E" + rowends + ",FALSE)/COUNTIFS(D" + rowstarts + ":D" + rowends + ",TRUE,E" + rowstarts + ":E" + rowends + ",FALSE)";
+                            sheet.Cells[rowend + 1, 9].Formula = "=SUMIFS(I" + rowstarts + ":I" + rowends + ",D" + rowstarts + ":D" + rowends + ",TRUE,E" + rowstarts + ":E" + rowends + ",FALSE)/COUNTIFS(D" + rowstarts + ":D" + rowends + ",TRUE,E" + rowstarts + ":E" + rowends + ",FALSE)";
+                            sheet.Cells[rowend + 1, 10].Formula = "=SUMIFS(J" + rowstarts + ":J" + rowends + ",D" + rowstarts + ":D" + rowends + ",TRUE,E" + rowstarts + ":E" + rowends + ",FALSE)/COUNTIFS(D" + rowstarts + ":D" + rowends + ",TRUE,E" + rowstarts + ":E" + rowends + ",FALSE)";
+                        }
+                        else
+                        {
+                            if (Rank.Equals("部门主管"))
+                            {
+                                sheet.Cells[rowend + 1, 6].Formula = "#NUM!";
+                                sheet.Cells[rowend + 1, 7].Formula = "#NUM!";
+                                sheet.Cells[rowend + 1, 8].Formula = "#NUM!";
+                                sheet.Cells[rowend + 1, 9].Formula = "#NUM!";
+                                sheet.Cells[rowend + 1, 10].Formula = "#NUM!";
+                            }
+                        }
+                    }
+
+                    
+
+                    using (FileStream createStream = new FileStream(selected.Name + "评测明细.xlsx", FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
+                    {
+                        ep.SaveAs(createStream);//存檔
+                    }
+
+                    Process m_Process = null;
+                    m_Process = new Process();
+                    m_Process.StartInfo.FileName = selected.Name + "评测明细.xlsx";
+                    m_Process.Start();
+                }
+            }
+        }
+
+        private void buttonClear_Click(object sender, EventArgs e)
+        {
+            voteds = new List<Voted>();
+            votes = new List<Vote>();
+            Rank = "普通员工";
+            labelMode.Text = "模式：" + Rank;
+            checkedListBoxDept.Items.Clear();
+            checkedListBoxVoteds.Items.Clear();
         }
     }
 }

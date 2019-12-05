@@ -33,6 +33,7 @@
             this.checkedListBoxDept = new System.Windows.Forms.CheckedListBox();
             this.checkedListBoxVoteds = new System.Windows.Forms.CheckedListBox();
             this.labelMode = new System.Windows.Forms.Label();
+            this.buttonClear = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // buttonLoad
@@ -47,7 +48,7 @@
             // 
             // buttonCal
             // 
-            this.buttonCal.Location = new System.Drawing.Point(138, 33);
+            this.buttonCal.Location = new System.Drawing.Point(128, 32);
             this.buttonCal.Name = "buttonCal";
             this.buttonCal.Size = new System.Drawing.Size(91, 30);
             this.buttonCal.TabIndex = 1;
@@ -73,6 +74,7 @@
             this.checkedListBoxVoteds.Name = "checkedListBoxVoteds";
             this.checkedListBoxVoteds.Size = new System.Drawing.Size(268, 388);
             this.checkedListBoxVoteds.TabIndex = 3;
+            this.checkedListBoxVoteds.DoubleClick += new System.EventHandler(this.checkedListBoxVoteds_DoubleClick);
             // 
             // labelMode
             // 
@@ -83,11 +85,22 @@
             this.labelMode.TabIndex = 4;
             this.labelMode.Text = "模式：";
             // 
+            // buttonClear
+            // 
+            this.buttonClear.Location = new System.Drawing.Point(225, 32);
+            this.buttonClear.Name = "buttonClear";
+            this.buttonClear.Size = new System.Drawing.Size(91, 30);
+            this.buttonClear.TabIndex = 5;
+            this.buttonClear.Text = "清空数据";
+            this.buttonClear.UseVisualStyleBackColor = true;
+            this.buttonClear.Click += new System.EventHandler(this.buttonClear_Click);
+            // 
             // FormMain
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(627, 523);
+            this.Controls.Add(this.buttonClear);
             this.Controls.Add(this.labelMode);
             this.Controls.Add(this.checkedListBoxVoteds);
             this.Controls.Add(this.checkedListBoxDept);
@@ -107,6 +120,7 @@
         private System.Windows.Forms.CheckedListBox checkedListBoxDept;
         private System.Windows.Forms.CheckedListBox checkedListBoxVoteds;
         private System.Windows.Forms.Label labelMode;
+        private System.Windows.Forms.Button buttonClear;
     }
 }
 
