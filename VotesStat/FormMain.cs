@@ -128,17 +128,19 @@ namespace VotesStat
                 detail = vm;
 
                 // 最高值和最低值标志
+                if (Flatcount() >= 10)
+                {
+                    vm.Where(x => x.Level.Equals("同级")).OrderBy(y => y.ScoreTotal()).First().IsMinOrMax = true;
+                    vm.Where(x => x.Level.Equals("同级")).OrderByDescending(y => y.ScoreTotal()).First().IsMinOrMax = true;
+                }
+
                 if (Rank == "普通员工")
                 {
-                    if (Uppercount() + Flatcount() >= 10 && Flatcount() > 2)
-                    {
-                        vm.Where(x => x.Level.Equals("同级")).OrderBy(y => y.ScoreTotal()).First().IsMinOrMax = true;
-                        vm.Where(x => x.Level.Equals("同级")).OrderByDescending(y => y.ScoreTotal()).First().IsMinOrMax = true;
-                    }
+
                 }
                 else
                 {
-                    if (Totalcount() >= 10 && Lowercount() > 2)
+                    if (Lowercount() >= 10)
                     {
                         vm.Where(x => x.Level.Equals("下级")).OrderBy(y => y.ScoreTotal()).First().IsMinOrMax = true;
                         vm.Where(x => x.Level.Equals("下级")).OrderByDescending(y => y.ScoreTotal()).First().IsMinOrMax = true;
@@ -349,6 +351,8 @@ namespace VotesStat
                 return;
             }
 
+            listBoxFiles.Items.Add(fileDialog.FileName);
+
             FileInfo existingFile = new FileInfo(fileDialog.FileName);
             using (ExcelPackage package = new ExcelPackage(existingFile))
             {
@@ -492,6 +496,8 @@ namespace VotesStat
                     // 按人员分类排序
                     selected = selected.OrderByDescending(o => o.JobType).ThenByDescending(o => o.Score[0] + o.Score[1] + o.Score[2] + o.Score[3]).ToList();
                     ExcelWorksheet sheet = ep.Workbook.Worksheets[1];//取得Sheet1
+                    if (selected.Count() <= 0)
+                        return;
                     sheet.Name = selected.First().Department + "评测结果";
                     sheet.InsertRow(4, selected.Count(), 3);
                     int row = 3;
@@ -756,6 +762,7 @@ namespace VotesStat
             votes = new List<Vote>();
             Rank = "普通员工";
             labelMode.Text = "模式：" + Rank;
+            listBoxFiles.Items.Clear();
             checkedListBoxDept.Items.Clear();
             checkedListBoxVoteds.Items.Clear();
         }
