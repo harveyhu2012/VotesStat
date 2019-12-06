@@ -98,7 +98,7 @@ namespace VotesStat
                     var s = votes
                         .Where(r => r.VoterName.Equals(voter.VoterName) && r.VoterDepartment.Equals(voter.VoterDepartment) &&
                         r.VotedId.Equals(Id))
-                        .OrderBy(r => r.VoteTime); // 按时间排序
+                        .OrderByDescending(r => r.VoteTime); // 按时间排序
 
                     if (s.Count() > 0)
                     {
@@ -115,7 +115,7 @@ namespace VotesStat
                         }
                         else
                         {
-                            // 最早的评价有效
+                            // 最晚的评价有效
                             s.First().IsValid = true;
                         }
 
