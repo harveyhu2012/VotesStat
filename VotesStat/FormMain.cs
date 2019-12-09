@@ -24,7 +24,7 @@ namespace VotesStat
         public class Voted
         {
             public string Name { get; set; }
-            public int Order { get; set; }
+            public string Order { get; set; }
             public string Id { get; set; }
             public string Department { get; set; }
             public string Job { get; set; }
@@ -312,14 +312,32 @@ namespace VotesStat
                 return have_voted;
             else
             {
+                //var not_voteds = votes
+                //    .Where(r => depts.Contains(r.VoterDepartment) && r.Level.Equals("同级"))
+                //    .GroupBy(r => new { r.VoterName, r.VoterDepartment })
+                //    .Select(r => new Voted
+                //    {
+                //        Name = r.Key.VoterName,
+                //        Department = r.Key.VoterDepartment,
+                //        Order = 999,
+                //        Id = r.Key.VoterName,
+                //        Job = "",
+                //        JobType = ""
+                //    })
+                //    .ToList();
+
+                //not_voteds = not_voteds
+                //    .Where(r => !voteds.Select(v => new { v.Name, v.Department }).Contains(new { Name = r.Name, Department = r.Department }))
+                //    .ToList();
+
                 var not_voteds = votes
                     .Where(r => depts.Contains(r.VoterDepartment) && r.Level.Equals("同级"))
-                    .GroupBy(r => new { r.VoterName, r.VoterDepartment })
+                    .GroupBy(r => new { r.VoterName })
                     .Select(r => new Voted
                     {
                         Name = r.Key.VoterName,
-                        Department = r.Key.VoterDepartment,
-                        Order = 999,
+                        Department = r.FirstOrDefault().VoterDepartment,
+                        Order = "",
                         Id = r.Key.VoterName,
                         Job = "",
                         JobType = ""
@@ -327,9 +345,8 @@ namespace VotesStat
                     .ToList();
 
                 not_voteds = not_voteds
-                    .Where(r => !voteds.Select(v => new { v.Name, v.Department }).Contains(new { Name = r.Name, Department = r.Department }))
+                    .Where(r => !voteds.Select(v => new { v.Name }).Contains(new { Name = r.Name }))
                     .ToList();
-
 
                 var full_voteds = have_voted.Concat(not_voteds).ToList();
 
@@ -370,7 +387,7 @@ namespace VotesStat
                 List<Voted> new_voteds = rows
                     .Select(row => new Voted
                     {
-                        Order = int.Parse(row.ElementAt(6).Value.ToString()),
+                        Order = row.ElementAt(6).Value.ToString().Trim(),
                         Name = row.ElementAt(7).Value.ToString().Trim(),
                         Id = row.ElementAt(8).Value.ToString().Trim(),
                         Department = row.ElementAt(9).Value.ToString().Trim(),
@@ -379,24 +396,40 @@ namespace VotesStat
                     }).ToList<Voted>();
 
                 // 合并后去重
+                //voteds = voteds.Concat(new_voteds)
+                //    .GroupBy(row => new
+                //    {
+                //        row.Order,
+                //        row.Name,
+                //        row.Id,
+                //        row.Department,
+                //        row.Job,
+                //        row.JobType
+                //    }
+                //    ).Select(m => new Voted
+                //    {
+                //        Order = m.Key.Order,
+                //        Name = m.Key.Name,
+                //        Id = m.Key.Id,
+                //        Department = m.Key.Department,
+                //        Job = m.Key.Job,
+                //        JobType = m.Key.JobType
+                //    }
+                //    ).ToList<Voted>();
+
                 voteds = voteds.Concat(new_voteds)
                     .GroupBy(row => new
                     {
-                        row.Order,
                         row.Name,
-                        row.Id,
-                        row.Department,
-                        row.Job,
-                        row.JobType
                     }
                     ).Select(m => new Voted
                     {
-                        Order = m.Key.Order,
+                        Order = m.FirstOrDefault().Order,
                         Name = m.Key.Name,
-                        Id = m.Key.Id,
-                        Department = m.Key.Department,
-                        Job = m.Key.Job,
-                        JobType = m.Key.JobType
+                        Id = m.FirstOrDefault().Id,
+                        Department = m.FirstOrDefault().Department,
+                        Job = m.FirstOrDefault().Job,
+                        JobType = m.FirstOrDefault().JobType
                     }
                     ).ToList<Voted>();
 
